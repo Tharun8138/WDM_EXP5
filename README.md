@@ -1,93 +1,228 @@
-### EX5 Information Retrieval Using Boolean Model in Python
-### DATE: 
-### AIM: To implement Information Retrieval Using Boolean Model in Python.
-### Description:
+### EX6 Information Retrieval Using Vector Space Model in Python
+### DATE: 23/05/26
+### AIM: To implement Information Retrieval Using Vector Space Model in Python.
+### Description: 
 <div align = "justify">
-The Boolean model in Information Retrieval (IR) is a fundamental model used for searching and retrieving information from a collection of documents. It operates on the principles of set theory and logic, where documents are represented as sets of terms or words, and queries are expressed as Boolean expressions using logical operators such as AND, OR, and NOT.
-  
+Implementing Information Retrieval using the Vector Space Model in Python involves several steps, including preprocessing text data, constructing a term-document matrix, 
+calculating TF-IDF scores, and performing similarity calculations between queries and documents. Below is a basic example using Python and libraries like nltk and 
+sklearn to demonstrate Information Retrieval using the Vector Space Model.
+
 ### Procedure:
-1. ***Initialize the BooleanRetrieval class:*** The BooleanRetrieval class is defined to manage the indexing and searching of documents.
-2. ***Constructor and Index Initialization:*** The class constructor initializes an empty index to store the inverted index mapping terms to documents.
-3. ***Indexing Documents:***
-    <p> a) The index_document method is responsible for indexing documents.
-    <p> b) Tokenize the text content of documents, converting them into lowercase terms.
-    <p> c) For each term in the document, it adds an entry in the index, associating the term with the document ID. </p>
-4. ***Fetch Web Page Text:***
-    <p>a) The fetch_webpage_text method uses the requests library to fetch content from a given URL.
-    <p>b) Extract text content from the fetched HTML using BeautifulSoup.
-    <p>c) The extracted text is returned for further processing.
-5. ***Boolean Search:***
-    <p>a) The boolean_search method performs Boolean searches on the indexed documents.
-    <p>b) Tokenize the input query and iterates through its terms.
-    <p>c) For each term in the query, it retrieves documents containing that term and performs Boolean operations (AND, OR, NOT) based on the query's structure.
+1. Define sample documents.
+2. Preprocess text data by tokenizing, removing stopwords, and punctuation.
+3. Construct a TF-IDF matrix using TfidfVectorizer from sklearn.
+4. Define a search function that calculates cosine similarity between a query and documents based on the TF-IDF matrix.
+5. Execute a sample query and display the search results along with similarity scores.
 
 ### Program:
+```python
+import requests
+from bs4 import BeautifulSoup
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+import numpy as np
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+import string
+import nltk
+from tabulate import tabulate
 
-    import numpy as np
-    import pandas as pd
-    class BooleanRetrieval:
-        def __init__(self):
-            self.index = {}
-            self.documents_matrix = None
+# Download required NLTK data
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('punkt_tab')
 
-    def index_document(self, doc_id, text):
-        terms = text.lower().split()
-        print("Document -", doc_id, terms)
+# -------------------------------
+# Document Collection
+# -------------------------------
+documents = {
+    "doc1": "the health Observation for March",
+    "doc2": "the health oriented Calender",
+    "doc3": "the awareness news for March awareness",
+}
 
-        for term in terms:
-            if term not in self.index:
-                self.index[term] = set()
-            self.index[term].add(doc_id)
+# -------------------------------
+# Preprocessing Function
+# -------------------------------
+def preprocess_text(text):
+    tokens = word_tokenize(text.lower())
+    tokens = [
+        token for token in tokens
+        if token not in stopwords.words("english")
+        and token not in string.punctuation
+    ]
+    return " ".join(tokens)
 
-    def create_documents_matrix(self, documents):
-        terms = list(self.index.keys())
-        num_docs = len(documents)
-        num_terms = len(terms)
+preprocessed_docs = {
+    doc_id: preprocess_text(doc)
+    for doc_id, doc in documents.items()
+}
 
-        self.documents_matrix = np.zeros((num_docs, num_terms), dtype=int)
+# -------------------------------
+# Vectorization
+# -------------------------------
+count_vectorizer = CountVectorizer()
+count_matrix = count_vectorizer.fit_transform(preprocessed_docs.values())
 
-        for i, (doc_id, text) in enumerate(documents.items()):
-            doc_terms = text.lower().split()
-            for term in doc_terms:
-                if term in self.index:
-                    term_id = terms.index(term)
-                    self.documents_matrix[i, term_id] = 1
+tfidf_vectorizer = TfidfVectorizer()
+tfidf_matrix = tfidf_vectorizer.fit_transform(preprocessed_docs.values())
 
-    def print_documents_matrix_table(self):
-        df = pd.DataFrame(self.documents_matrix, columns=self.index.keys())
-        print(df)
+terms = tfidf_vectorizer.get_feature_names_out()
 
-    def print_all_terms(self):
-        print("All terms in the documents:")
-        print(list(self.index.keys()))
+# -------------------------------
+# Display TF Table
+# -------------------------------
+print("\n--- Term Frequencies (TF) ---\n")
+tf_table = count_matrix.toarray()
 
-    def boolean_search(self, query):
-        # TYPE YOUR CODE HERE
+print(tabulate(
+    [["Doc ID"] + list(terms)] +
+    [[list(preprocessed_docs.keys())[i]] + list(row)
+     for i, row in enumerate(tf_table)],
+    headers="firstrow",
+    tablefmt="grid"
+))
 
-if __name__ == "__main__":
-    indexer = BooleanRetrieval()
+# -------------------------------
+# DF & IDF
+# -------------------------------
+df = np.sum(count_matrix.toarray() > 0, axis=0)
+idf = tfidf_vectorizer.idf_
 
-    documents = {
-        1: "Python is a programming language",
-        2: "Information retrieval deals with finding information",
-        3: "Boolean models are used in information retrieval"
-    }
+df_idf_table = []
+for i, term in enumerate(terms):
+    df_idf_table.append([term, df[i], round(idf[i], 4)])
 
-    for doc_id, text in documents.items():
-        indexer.index_document(doc_id, text)
+print("\n--- Document Frequency (DF) and Inverse Document Frequency (IDF) ---\n")
+print(tabulate(
+    df_idf_table,
+    headers=["Term", "Document Frequency (DF)", "Inverse Document Frequency (IDF)"],
+    tablefmt="grid"
+))
 
-    indexer.create_documents_matrix(documents)
-    indexer.print_documents_matrix_table()
-    indexer.print_all_terms()
+# -------------------------------
+# TF-IDF Table
+# -------------------------------
+print("\n--- TF-IDF Weights ---\n")
+tfidf_table = tfidf_matrix.toarray()
 
-    query = input("Enter your boolean query: ")
-    results = indexer.boolean_search(query)
-    if results:
-        print(f"Results for '{query}': {results}")
-    else:
-        print("No results found for the query.")
+print(tabulate(
+    [["Doc ID"] + list(terms)] +
+    [[list(preprocessed_docs.keys())[i]] +
+     list(map(lambda x: round(x, 4), row))
+     for i, row in enumerate(tfidf_table)],
+    headers="firstrow",
+    tablefmt="grid"
+))
 
+# -------------------------------
+# Cosine Similarity + Search
+# -------------------------------
+def cosine_similarity_search(query, tfidf_matrix, tfidf_vectorizer, documents, preprocessed_docs):
+    preprocessed_query = preprocess_text(query)
+    query_vector = tfidf_vectorizer.transform([preprocessed_query]).toarray()[0]
 
+    results = []
+
+    for idx, doc_vector in enumerate(tfidf_matrix.toarray()):
+        doc_id = list(preprocessed_docs.keys())[idx]
+        doc_text = documents[doc_id]
+
+        dot_product = np.dot(query_vector, doc_vector)
+        norm_q = np.linalg.norm(query_vector)
+        norm_d = np.linalg.norm(doc_vector)
+
+        similarity = dot_product / (norm_q * norm_d) if norm_q != 0 and norm_d != 0 else 0.0
+
+        results.append([
+            doc_id,
+            doc_text,
+            round(dot_product, 4),
+            round(norm_q, 4),
+            round(norm_d, 4),
+            round(similarity, 4)
+        ])
+
+    results.sort(key=lambda x: x[5], reverse=True)
+    return results, query_vector
+
+# -------------------------------
+# User Query
+# -------------------------------
+query = input("\nEnter your query: ")
+
+results_table, query_vector = cosine_similarity_search(
+    query,
+    tfidf_matrix,
+    tfidf_vectorizer,
+    documents,
+    preprocessed_docs
+)
+
+# -------------------------------
+# Display Results
+# -------------------------------
+print("\n--- Search Results and Cosine Similarity ---\n")
+
+headers = [
+    "Doc ID",
+    "Document",
+    "Dot Product",
+    "Query Magnitude",
+    "Doc Magnitude",
+    "Cosine Similarity"
+]
+
+print(tabulate(results_table, headers=headers, tablefmt="grid"))
+
+# -------------------------------
+# Query TF-IDF Weights
+# -------------------------------
+print("\n--- Query TF-IDF Weights ---\n")
+
+query_weights = [
+    (terms[i], round(query_vector[i], 4))
+    for i in range(len(terms))
+    if query_vector[i] > 0
+]
+
+print(tabulate(
+    query_weights,
+    headers=["Term", "Query TF-IDF Weight"],
+    tablefmt="grid"
+))
+
+# -------------------------------
+# Ranked Documents
+# -------------------------------
+print("\n--- Ranked Documents ---\n")
+
+ranked_docs = []
+for idx, res in enumerate(results_table, start=1):
+    ranked_docs.append([
+        idx,
+        res[0],
+        res[1],
+        res[5]
+    ])
+
+print(tabulate(
+    ranked_docs,
+    headers=["Rank", "Document ID", "Document Text", "Cosine Similarity"],
+    tablefmt="grid"
+))
+
+highest_doc = max(results_table, key=lambda x: x[5])
+print(f"\nThe highest rank cosine score is: {highest_doc[5]} (Document ID: {highest_doc[0]})")
+```
 ### Output:
+<img width="1356" height="475" alt="image" src="https://github.com/user-attachments/assets/d3125b38-893c-4638-a6b0-fb33d491f29d" />
+<img width="1392" height="281" alt="image" src="https://github.com/user-attachments/assets/2bff7e67-71ec-407a-938c-92013ce1c8e8" />
+<img width="1445" height="342" alt="image" src="https://github.com/user-attachments/assets/9194b4c7-2d48-4121-a353-7ad6b72e692a" />
+<img width="1445" height="342" alt="image" src="https://github.com/user-attachments/assets/495f132d-97f4-4c80-82f8-76e9a0f04a7d" />
+<img width="1375" height="588" alt="image" src="https://github.com/user-attachments/assets/5fe6517b-8486-436b-ba08-1499d3234af0" />
+
+
+
 
 ### Result:
+Thus the, Information Retrieval using the Vector Space Model in Python involves several steps, including preprocessing text data, constructing a term-document matrix, TF-IDF scores, and performing similarity calculations between queries and documents is executed successfully.
